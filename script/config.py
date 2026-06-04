@@ -14,3 +14,4 @@ class Settings:
     whisper_compute_type: str = "default"
     audio_format: str = "wav"
     audio_sample_rate: int = 16000
+    skip_transcribe: bool = False

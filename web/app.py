@@ -191,12 +191,19 @@ def api_video_extract():
     model = data.get("model") or "small"
     if model not in WHISPER_MODELS:
         model = "small"
+    skip_transcribe = bool(
+        data.get("skip_transcribe") or data.get("mode") == "video_only"
+    )
     if not share_text:
         return jsonify({"success": False, "error": "请输入分享链接"}), 400
     try:
         out_dir = process_douyin_share(
             share_text,
-            settings=Settings(output_dir=OUTPUT_DIR, whisper_model=model),
+            settings=Settings(
+                output_dir=OUTPUT_DIR,
+                whisper_model=model,
+                skip_transcribe=skip_transcribe,
+            ),
         )
         meta_path = out_dir / "meta.json"
         meta = {}

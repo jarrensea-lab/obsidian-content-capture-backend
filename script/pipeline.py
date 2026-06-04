@@ -123,6 +123,18 @@ def _process_video(
     if not video_path.exists():
         download_file(meta.download_url, video_path)
 
+    if cfg.skip_transcribe:
+        _write_transcript_files(
+            out_dir,
+            meta,
+            "",
+            extra_files={
+                "video": video_path.name,
+                "download_url": download_url_path.name,
+            },
+        )
+        return
+
     if not audio_path.exists():
         extract_audio(
             video_path,

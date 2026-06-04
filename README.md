@@ -184,6 +184,10 @@ out_dir = process_douyin_share(
 | Web 长时间无响应 | 同步处理中，视频转写完成前页面不会更新 |
 | 配图无文字 | 题本在图片里，当前未做 OCR |
 
+## Obsidian 插件
+
+配套插件：[obsidian-douyin-capture](https://github.com/lyxdream/obsidian-douyin-capture)。插件与后端的 API / Vault 约定见插件仓库 [`docs/obsidian-plugin-contract.md`](../obsidian-douyin-capture/docs/obsidian-plugin-contract.md)。
+
 ## 后续规划
 
 业务逻辑集中在 `script/`，计划通过 adapter（MCP / 子进程 / Obsidian 等）对外提供插件能力；`web/` 仅作演示与本地调试。
