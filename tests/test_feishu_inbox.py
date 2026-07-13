@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,6 +13,7 @@ from script.feishu_inbox import (
     process_inbox_once,
     read_jsonl,
 )
+from script.feishu_poller import queue_feishu_message_items
 from script.feishu_ws_listener import queue_message_event
 from web.app import app
 
@@ -215,6 +217,46 @@ class FeishuInboxTest(unittest.TestCase):
             self.assertEqual(replies[0][0], "om_done")
             self.assertIn("已处理完毕", replies[0][1])
             self.assertIn("https://v.douyin.com/done/", replies[0][1])
+
+    def test_feishu_poller_backfills_recent_chat_message(self) -> None:
+        replies: list[tuple[str, str]] = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            now_ms = int(time.time() * 1000)
+            summary = queue_feishu_message_items(
+                [
+                    {
+                        "message_id": "om_polled",
+                        "chat_id": "oc_test",
+                        "create_time": str(now_ms),
+                        "msg_type": "text",
+                        "sender": {"sender_type": "user"},
+                        "body": {
+                            "content": json.dumps(
+                                {
+                                    "text": "飞书 API 兜底 https://v.douyin.com/polled/ 入库",
+                                },
+                                ensure_ascii=False,
+                            )
+                        },
+                    }
+                ],
+                inbox_dir=Path(tmp),
+                reply_sender=lambda message_id, text: replies.append((message_id, text)),
+            )
+
+            self.assertEqual(summary.queued_messages, 1)
+            self.assertEqual(summary.queued_links, 1)
+            self.assertEqual(summary.reply_sent, 1)
+            self.assertEqual(replies[0][0], "om_polled")
+            self.assertIn("已接收", replies[0][1])
+
+            inbox_path, _processed_path = default_inbox_files(Path(tmp))
+            records = read_jsonl(inbox_path)
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0]["message_id"], "om_polled")
+            self.assertEqual(records[0]["chat_id"], "oc_test")
+            self.assertEqual(records[0]["links"], ["https://v.douyin.com/polled/"])
 
 
 if __name__ == "__main__":

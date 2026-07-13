@@ -137,6 +137,8 @@ export FEISHU_APP_SECRET="你的马哥 App Secret"
 | `FEISHU_APP_ID` | `cli_aaab1c2d2c785bfc` | 马哥应用 ID |
 | `FEISHU_APP_SECRET` | 无 | 马哥应用密钥，只从本机环境变量读取 |
 | `VIDEO_INBOX_DIR` | `/Users/zhuchenyuan/AI/projects/司库/01-资料采集/Inbox/video-inbox` | 飞书队列目录 |
+| `FEISHU_POLL_CHAT_ID` | `oc_705067992099413b7560f38fe3ea6c2a` | worker 主动轮询的马哥会话 ID，用于兜底长连接漏事件 |
+| `FEISHU_POLL_LOOKBACK_SECONDS` | `3600` | 只补入最近 N 秒内的飞书消息 |
 
 飞书开放平台里，事件订阅方式切到「使用长连接接收事件」，并保留 `im.message.receive_v1`。长连接不需要公网 URL，也不需要 Cloudflare tunnel；只要本机 listener 运行，手机发给「马哥」的消息就会进入本地队列。
 
@@ -214,6 +216,8 @@ $VIDEO_INBOX_DIR/processed-events.jsonl
 ```
 
 worker 会按「飞书消息 ID + 抖音链接」去重；失败记录不会阻止下次重试。`--dry-run` 产生的记录只用于 dry-run 去重，不会阻止正式处理。
+
+为避免飞书长连接偶发漏事件，worker 每轮会先主动轮询 `FEISHU_POLL_CHAT_ID` 对应会话最近消息；如果发现最近 1 小时内有尚未入队的抖音链接，会补写到 `feishu-events.jsonl` 并发送「已接收」回执。长连接和轮询共用同一套 message_id 去重。
 
 worker 每处理完一条链接，会回复原飞书消息：
 

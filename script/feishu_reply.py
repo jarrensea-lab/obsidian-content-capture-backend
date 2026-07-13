@@ -25,7 +25,7 @@ def _env(name: str) -> str:
     return os.environ.get(name, "").strip()
 
 
-def _tenant_access_token() -> str:
+def tenant_access_token() -> str:
     now = time.time()
     cached = str(_TOKEN_CACHE.get("token") or "")
     if cached and float(_TOKEN_CACHE.get("expires_at") or 0) > now + 60:
@@ -61,7 +61,7 @@ def send_feishu_text_reply(message_id: str, text: str) -> None:
     if _env("FEISHU_REPLY_DISABLED").lower() in {"1", "true", "yes"}:
         return
 
-    token = _tenant_access_token()
+    token = tenant_access_token()
     response = requests.post(
         f"https://open.feishu.cn/open-apis/im/v1/messages/{message_id}/reply",
         headers={"Authorization": f"Bearer {token}"},

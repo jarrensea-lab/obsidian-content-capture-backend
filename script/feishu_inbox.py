@@ -99,6 +99,7 @@ def build_feishu_record(
         "text": message_text,
         "event_type": (payload.get("header") or {}).get("event_type") or payload.get("type"),
         "message_id": message.get("message_id"),
+        "chat_id": message.get("chat_id"),
         "received_at": received_at.isoformat(),
     }
 
