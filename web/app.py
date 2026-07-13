@@ -51,6 +51,11 @@ from flask import (
 
 from script.config import Settings
 from script.douyin_resolver import resolve_douyin_share
+from script.feishu_inbox import (
+    append_feishu_inbox,
+    extract_douyin_links,
+    extract_message_text,
+)
 from script.paths import OUTPUT_DIR
 from script.pipeline import process_douyin_share
 
@@ -109,6 +114,35 @@ def _render_index_page(*, result=None, error=None):
         result=result,
         error=error,
     )
+
+
+@app.route("/api/feishu/events", defaults={"path_secret": ""}, methods=["POST"])
+@app.route("/api/feishu/events/<path_secret>", methods=["POST"])
+def api_feishu_events(path_secret: str):
+    """Receive Feishu event callbacks and queue Douyin links for later processing."""
+    expected_secret = os.environ.get("FEISHU_EVENT_PATH_SECRET", "").strip()
+    if expected_secret and path_secret != expected_secret:
+        return jsonify({"success": False, "error": "invalid callback path"}), 404
+
+    payload = request.get_json(silent=True) or {}
+
+    expected_token = os.environ.get("FEISHU_VERIFICATION_TOKEN", "").strip()
+    incoming_token = payload.get("token") or (payload.get("header") or {}).get("token")
+    if expected_token and incoming_token != expected_token:
+        return jsonify({"success": False, "error": "invalid token"}), 403
+
+    challenge = payload.get("challenge")
+    if challenge:
+        return jsonify({"challenge": challenge})
+
+    event = payload.get("event") or {}
+    text = extract_message_text(event)
+    links = extract_douyin_links(text)
+    if not links:
+        return jsonify({"success": True, "queued": 0, "message": "no douyin link"})
+
+    inbox_path, _record = append_feishu_inbox(payload, links=links, text=text)
+    return jsonify({"success": True, "queued": len(links), "inbox": str(inbox_path)})
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -277,5 +311,6 @@ def serve_output(subpath: str):
 if __name__ == "__main__":
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     port = int(os.environ.get("PORT", "5050"))
+    debug = os.environ.get("FLASK_DEBUG", "").strip() == "1"
     print(f"打开浏览器访问: http://127.0.0.1:{port}")
-    app.run(host="127.0.0.1", port=port, debug=True)
+    app.run(host="127.0.0.1", port=port, debug=debug)

@@ -3,6 +3,7 @@
 从抖音分享链接或整段分享文案，在本地完成解析、下载与文案提取：
 
 - **视频**：无水印下载 → FFmpeg 抽音频 → [faster-whisper](https://github.com/SYSTRAN/faster-whisper) 转写 → [zhconv](https://github.com/Gowee/zhconv) 简体
+- **视频画面**：FFmpeg 间隔抽帧 → macOS Vision OCR 识别画面文字 → 提取提示词、软件用法、参数、Skill/工作流线索
 - **图文（note）**：提取 `desc` 配文并下载配图（不跑 Whisper，不做图片 OCR）
 
 **无需登录 Cookie，无需硅基流动等付费语音 API。**
@@ -69,6 +70,7 @@ pip install -r requirements.txt
 | `faster-whisper` | 本地语音转写 |
 | `zhconv` | 繁体 → 简体 |
 | `flask` | Web 界面 |
+| `pyobjc-framework-Vision` | macOS 帧 OCR，识别视频画面里的提示词/参数/界面文字 |
 
 > 若终端是 Conda `(base)` 且报 `No module named 'zhconv'`，请先 `source .venv/bin/activate`，或直接用 `./run.sh` / `python main.py`（会自动尝试 `.venv`）。
 
@@ -116,6 +118,115 @@ python web/app.py
 | 提取中 / 提取结果 | 实时进度与最终文案（复制、下载） |
 
 指定端口：`PORT=8080 python web/app.py`
+
+### 飞书手机收件箱（马哥）
+
+用于手机刷抖音时，把分享文案/链接发给飞书机器人「马哥」，先进入本地队列，再由 worker 后续下载、转写和入库。
+
+#### 1. 推荐入口：长连接
+
+```bash
+export FEISHU_APP_SECRET="你的马哥 App Secret"
+./run-feishu-ws-listener.sh
+```
+
+默认配置：
+
+| 环境变量 | 默认值 | 说明 |
+|------|------|------|
+| `FEISHU_APP_ID` | `cli_aaab1c2d2c785bfc` | 马哥应用 ID |
+| `FEISHU_APP_SECRET` | 无 | 马哥应用密钥，只从本机环境变量读取 |
+| `VIDEO_INBOX_DIR` | `/Users/zhuchenyuan/AI/projects/司库/01-资料采集/Inbox/video-inbox` | 飞书队列目录 |
+
+飞书开放平台里，事件订阅方式切到「使用长连接接收事件」，并保留 `im.message.receive_v1`。长连接不需要公网 URL，也不需要 Cloudflare tunnel；只要本机 listener 运行，手机发给「马哥」的消息就会进入本地队列。
+
+#### 2. 备用入口：HTTP webhook
+
+如果临时需要 webhook 模式：
+
+```bash
+./run-feishu-webhook.sh
+```
+
+本地服务回调路径为：
+
+```text
+http://127.0.0.1:5050/api/feishu/events/inbox20260712
+```
+
+飞书开放平台需要公网 URL。临时调试可另开终端：
+
+```bash
+cloudflared tunnel --protocol http2 --url http://127.0.0.1:5050
+```
+
+然后把生成的公网域名拼成：
+
+```text
+https://<cloudflared-domain>/api/feishu/events/inbox20260712
+```
+
+写入「马哥」事件订阅的请求地址。Cloudflare quick tunnel 是临时入口，Mac 休眠、终端关闭或域名变化后，需要重新填写飞书回调地址。
+
+#### 3. 验证队列
+
+手机端把抖音分享文案发给「马哥」后，本地会追加：
+
+```text
+$VIDEO_INBOX_DIR/feishu-events.jsonl
+```
+
+队列记录只保存必要字段：来源、状态、抖音链接、原始文本、飞书消息 ID、接收时间。
+
+#### 4. 处理队列
+
+先 dry-run 验证，不下载、不转写：
+
+```bash
+./run-feishu-worker.sh --dry-run --limit 5
+```
+
+确认无误后处理：
+
+```bash
+# 只采集素材，不跑 Whisper
+./run-feishu-worker.sh --skip-transcribe --limit 1
+
+# 完整下载 + Whisper 转写
+./run-feishu-worker.sh --model small --limit 1
+
+# 完整处理并尝试同步 gbrain
+./run-feishu-worker.sh --model small --limit 1 --gbrain-capture
+```
+
+处理结果追加到：
+
+```text
+$VIDEO_INBOX_DIR/processed-events.jsonl
+```
+
+worker 会按「飞书消息 ID + 抖音链接」去重；失败记录不会阻止下次重试。`--dry-run` 产生的记录只用于 dry-run 去重，不会阻止正式处理。
+
+成功处理后会自动生成三类司库 Markdown：
+
+| 类型 | 目录 |
+|------|------|
+| 原始采集 | `01-资料采集/Douyin/` |
+| 学习蒸馏 | `03-知识加工/蒸馏精华/短视频学习/` |
+| 项目建议 | `03-知识加工/智能建议/项目优化建议/` |
+
+如果加 `--gbrain-capture`，worker 会对学习蒸馏报告执行 `gbrain capture --file ... --source default`。如果本机 gbrain/PGLite 被其他进程锁住，处理记录会保留 `gbrain_error`，报告文件仍然已经落入司库。
+
+视频类内容还会在本地输出目录生成画面证据：
+
+| 文件 | 说明 |
+|------|------|
+| `frames/frame_0001.jpg` 等 | 每 2 秒抽取一张视频帧 |
+| `frames/manifest.json` | 抽帧清单 |
+| `frames/frame_ocr.txt` | 帧 OCR 文本，包含画面中的提示词、参数、软件界面文字 |
+| `frames/frame_ocr.json` | 结构化 OCR 结果 |
+
+学习报告会包含「可复用资产清单」「帧证据」「帧 OCR 文本」「完整转写 / 配文」。其中可复用资产清单会按提示词模板、软件/工具用法、Skill/工作流、参数/语法拆分。OCR 可能存在错字，报告会保留帧证据，便于回看核对。
 
 ### 命令行
 
