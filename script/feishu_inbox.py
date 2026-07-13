@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from script.config import Settings
+from script.feishu_reply import ReplySender, processed_reply_text, try_send_reply
 from script.paths import OUTPUT_DIR
 
 DOUYIN_LINK_RE = re.compile(
@@ -162,6 +163,7 @@ def process_inbox_once(
     gbrain_capture: bool = False,
     gbrain_source: str = "default",
     limit: int | None = None,
+    reply_sender: ReplySender | None = None,
 ) -> InboxProcessSummary:
     default_inbox_path, default_processed_path = default_inbox_files()
     source_path = inbox_path or default_inbox_path
@@ -251,6 +253,14 @@ def process_inbox_once(
                     failed += 1
                     result["status"] = "failed"
                     result["error"] = str(e)
+
+            reply_error = try_send_reply(
+                record.get("message_id"),
+                processed_reply_text(result),
+                reply_sender=reply_sender,
+            )
+            if reply_error:
+                result["reply_error"] = reply_error
 
             append_jsonl(result_path, result)
             completed.add(key)

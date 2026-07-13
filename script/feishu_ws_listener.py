@@ -20,6 +20,7 @@ from script.feishu_inbox import (
     extract_douyin_links,
     extract_message_text,
 )
+from script.feishu_reply import ReplySender, queued_reply_text, try_send_reply
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class ListenerQueueResult:
     queued: int
     inbox_path: Path | None
     record: dict[str, Any] | None
+    reply_error: str | None = None
 
 
 def _sdk_event_to_payload(data: Any) -> dict[str, Any]:
@@ -48,6 +50,7 @@ def queue_message_event(
     data: Any,
     *,
     inbox_dir: Path | None = None,
+    reply_sender: ReplySender | None = None,
 ) -> ListenerQueueResult:
     payload = _sdk_event_to_payload(data)
     event = payload.get("event") or {}
@@ -62,7 +65,17 @@ def queue_message_event(
         text=text,
         links=links,
     )
-    return ListenerQueueResult(queued=len(links), inbox_path=inbox_path, record=record)
+    reply_error = try_send_reply(
+        record.get("message_id"),
+        queued_reply_text(link_count=len(links)),
+        reply_sender=reply_sender,
+    )
+    return ListenerQueueResult(
+        queued=len(links),
+        inbox_path=inbox_path,
+        record=record,
+        reply_error=reply_error,
+    )
 
 
 def _env_required(name: str) -> str:
@@ -75,7 +88,8 @@ def _env_required(name: str) -> str:
 def _log_queue_result(result: ListenerQueueResult) -> None:
     if result.queued:
         links = ", ".join(result.record.get("links", [])) if result.record else ""
-        print(f"queued={result.queued} links={links}", flush=True)
+        reply = f" reply_error={result.reply_error}" if result.reply_error else ""
+        print(f"queued={result.queued} links={links}{reply}", flush=True)
     else:
         print("queued=0 message=no-douyin-link", flush=True)
 

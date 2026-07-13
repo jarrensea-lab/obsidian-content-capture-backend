@@ -9,5 +9,6 @@ if [[ ! -d .venv ]]; then
 fi
 
 export VIDEO_INBOX_DIR="${VIDEO_INBOX_DIR:-/Users/zhuchenyuan/AI/projects/司库/01-资料采集/Inbox/video-inbox}"
+export FEISHU_APP_ID="${FEISHU_APP_ID:-cli_aaab1c2d2c785bfc}"
 
 exec .venv/bin/python -m script.feishu_inbox_worker "$@"

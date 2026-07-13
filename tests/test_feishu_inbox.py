@@ -148,6 +148,25 @@ class FeishuInboxTest(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0]["source"], "feishu")
 
+    def test_ws_listener_replies_after_message_is_queued(self) -> None:
+        replies: list[tuple[str, str]] = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = queue_message_event(
+                _message_payload(
+                    "手机发给马哥 https://v.douyin.com/wsone/ 入库",
+                    message_id="om_ws_reply",
+                ),
+                inbox_dir=Path(tmp),
+                reply_sender=lambda message_id, text: replies.append((message_id, text)),
+            )
+
+            self.assertEqual(result.queued, 1)
+            self.assertEqual(len(replies), 1)
+            self.assertEqual(replies[0][0], "om_ws_reply")
+            self.assertIn("已接收", replies[0][1])
+            self.assertIn("1", replies[0][1])
+
     def test_ws_listener_ignores_messages_without_douyin_link(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = queue_message_event(
@@ -159,6 +178,39 @@ class FeishuInboxTest(unittest.TestCase):
             self.assertIsNone(result.inbox_path)
             inbox_path, _ = default_inbox_files(Path(tmp))
             self.assertEqual(read_jsonl(inbox_path), [])
+
+    def test_worker_replies_after_processed_link_finishes(self) -> None:
+        replies: list[tuple[str, str]] = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            inbox_path, processed_path = default_inbox_files(Path(tmp))
+            inbox_path.write_text(
+                json.dumps(
+                    {
+                        "source": "feishu",
+                        "status": "queued",
+                        "message_id": "om_done",
+                        "links": ["https://v.douyin.com/done/"],
+                        "text": "处理完成回执",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            summary = process_inbox_once(
+                inbox_path,
+                processed_path,
+                dry_run=True,
+                reply_sender=lambda message_id, text: replies.append((message_id, text)),
+            )
+
+            self.assertEqual(summary.created_results, 1)
+            self.assertEqual(len(replies), 1)
+            self.assertEqual(replies[0][0], "om_done")
+            self.assertIn("已处理完毕", replies[0][1])
+            self.assertIn("https://v.douyin.com/done/", replies[0][1])
 
 
 if __name__ == "__main__":

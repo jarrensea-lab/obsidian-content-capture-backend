@@ -140,6 +140,14 @@ export FEISHU_APP_SECRET="你的马哥 App Secret"
 
 飞书开放平台里，事件订阅方式切到「使用长连接接收事件」，并保留 `im.message.receive_v1`。长连接不需要公网 URL，也不需要 Cloudflare tunnel；只要本机 listener 运行，手机发给「马哥」的消息就会进入本地队列。
 
+接收成功后，机器人会回复：
+
+```text
+已接收：收到 N 个抖音链接，已进入短视频收件箱。处理完成后我会再回复。
+```
+
+回复依赖 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET` 获取 tenant access token。回执失败不会阻断入队，但日志或处理记录会保留 `reply_error` 便于排查。
+
 #### 2. 备用入口：HTTP webhook
 
 如果临时需要 webhook 模式：
@@ -206,6 +214,15 @@ $VIDEO_INBOX_DIR/processed-events.jsonl
 ```
 
 worker 会按「飞书消息 ID + 抖音链接」去重；失败记录不会阻止下次重试。`--dry-run` 产生的记录只用于 dry-run 去重，不会阻止正式处理。
+
+worker 每处理完一条链接，会回复原飞书消息：
+
+```text
+已处理完毕：https://v.douyin.com/...
+学习报告：/Users/zhuchenyuan/AI/projects/司库/03-知识加工/蒸馏精华/短视频学习/...
+```
+
+如果处理失败，会回复 `处理失败` 和错误原因。历史已处理链接在后续轮询中只跳过，不重复发送回执，避免刷屏。
 
 成功处理后会自动生成三类司库 Markdown：
 

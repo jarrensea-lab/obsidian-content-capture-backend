@@ -56,6 +56,7 @@ from script.feishu_inbox import (
     extract_douyin_links,
     extract_message_text,
 )
+from script.feishu_reply import queued_reply_text, try_send_reply
 from script.paths import OUTPUT_DIR
 from script.pipeline import process_douyin_share
 
@@ -141,8 +142,15 @@ def api_feishu_events(path_secret: str):
     if not links:
         return jsonify({"success": True, "queued": 0, "message": "no douyin link"})
 
-    inbox_path, _record = append_feishu_inbox(payload, links=links, text=text)
-    return jsonify({"success": True, "queued": len(links), "inbox": str(inbox_path)})
+    inbox_path, record = append_feishu_inbox(payload, links=links, text=text)
+    reply_error = try_send_reply(
+        record.get("message_id"),
+        queued_reply_text(link_count=len(links)),
+    )
+    response = {"success": True, "queued": len(links), "inbox": str(inbox_path)}
+    if reply_error:
+        response["reply_error"] = reply_error
+    return jsonify(response)
 
 
 @app.route("/", methods=["GET", "POST"])
