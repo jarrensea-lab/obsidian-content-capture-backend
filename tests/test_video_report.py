@@ -63,7 +63,6 @@ class VideoReportTest(unittest.TestCase):
                 source_text="手机分享文案",
             )
 
-            self.assertTrue(reports.raw_note.exists())
             self.assertTrue(reports.knowledge_note.exists())
             self.assertTrue(reports.study_report.exists())
             self.assertTrue(reports.project_suggestion.exists())

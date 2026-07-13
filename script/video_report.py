@@ -15,7 +15,6 @@ DEFAULT_SIKU_ROOT = Path("/Users/zhuchenyuan/AI/projects/司库")
 
 @dataclass(frozen=True)
 class SikuReportPaths:
-    raw_note: Path
     knowledge_note: Path
     study_report: Path
     project_suggestion: Path
@@ -211,7 +210,6 @@ def generate_siku_reports(
     assets = _asset_sections(analysis_text, title)
     frame_evidence = _frame_evidence_markdown(out_dir)
 
-    raw_note = siku_root / "01-资料采集" / "Douyin" / filename
     knowledge_note = siku_root / "02-知识笔记" / "短视频爬取" / filename
     study_report = siku_root / "03-知识加工" / "蒸馏精华" / "短视频学习" / filename
     project_suggestion = siku_root / "03-知识加工" / "智能建议" / "项目优化建议" / filename
@@ -225,22 +223,6 @@ def generate_siku_reports(
         "author": author,
         "source_url": source_url,
     }
-
-    raw_content = f"""{_frontmatter(**common_fm)}
-# {title}
-
-## 基本信息
-- 作者：{author}
-- 类型：{content_type}
-- 抖音链接：{source_url or "未记录"}
-- 本地素材目录：{out_dir}
-
-## 手机分享原文
-{source_text or "未记录"}
-
-## 转写 / 配文
-{transcript or "暂未提取到正文。"}
-"""
 
     knowledge_content = f"""{_frontmatter(**{**common_fm, "type": "douyin-full-crawl-note"})}
 # 短视频完整爬取：{title}
@@ -311,13 +293,12 @@ def generate_siku_reports(
 - [ ] 验证有效后再沉淀为方法卡或项目任务。
 
 ## 证据
-- 原始采集：[[{raw_note.stem}]]
+- 完整爬取：[[{knowledge_note.stem}]]
 - 学习报告：[[{study_report.stem}]]
 - 抖音链接：{source_url or "未记录"}
 """
 
     return SikuReportPaths(
-        raw_note=_write(raw_note, raw_content),
         knowledge_note=_write(knowledge_note, knowledge_content),
         study_report=_write(study_report, study_content),
         project_suggestion=_write(project_suggestion, suggestion_content),
