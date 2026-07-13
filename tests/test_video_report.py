@@ -39,12 +39,13 @@ class VideoReportTest(unittest.TestCase):
             frames_dir = out_dir / "frames"
             frames_dir.mkdir()
             (frames_dir / "frame_0001.jpg").write_bytes(b"jpg")
+            (frames_dir / "frame_0002.jpg").write_bytes(b"jpg")
             (frames_dir / "manifest.json").write_text(
                 json.dumps(
                     {
-                        "frame_count": 1,
+                        "frame_count": 2,
                         "every_seconds": 2,
-                        "frames": ["frame_0001.jpg"],
+                        "frames": ["frame_0001.jpg", "frame_0002.jpg"],
                     },
                     ensure_ascii=False,
                 ),
@@ -57,7 +58,10 @@ class VideoReportTest(unittest.TestCase):
                 "电影风格貨像\n"
                 "三地角色试图\n"
                 "比列不变护图\n"
-                "motion strength 0.6\n",
+                "motion strength 0.6\n"
+                "## frame_0002.jpg\n"
+                "人物质感提示词\n"
+                "最终呈现电影级肤色带有柯达 Portra400 胶片的细腻颗粒与色彩层次。\n",
                 encoding="utf-8",
             )
 
@@ -88,6 +92,12 @@ class VideoReportTest(unittest.TestCase):
             study_text = reports.study_report.read_text(encoding="utf-8")
             self.assertIn("Seedance", study_text)
             self.assertIn("## 完整转写 / 配文", study_text)
+            self.assertIn("## 这条视频真正讲了什么", study_text)
+            self.assertIn("不是简单复述口播", study_text)
+            self.assertIn("## 视频里的可复用资产", study_text)
+            self.assertIn("用途：", study_text)
+            self.assertIn("## 对项目优化的建议", study_text)
+            self.assertIn("## 项目 Worklist", study_text)
             self.assertIn("## 可复用资产清单", study_text)
             self.assertIn("### 提示词模板", study_text)
             self.assertIn("主体 + 动作 + 镜头运动 + 风格", study_text)
@@ -104,6 +114,9 @@ class VideoReportTest(unittest.TestCase):
             self.assertIn("3D角色视图", study_text)
             self.assertIn("比例不变扩图", study_text)
             self.assertIn("增强 AI 人物质感", study_text)
+            self.assertIn("角色设定", study_text)
+            self.assertIn("短视频收件箱", study_text)
+            self.assertIn("增强人物皮肤真实感", study_text)
             self.assertNotIn("电影风格貨像", study_text)
             self.assertNotIn("简弱AI", study_text)
             self.assertNotIn("扩词", study_text)
@@ -111,7 +124,11 @@ class VideoReportTest(unittest.TestCase):
                 "这个视频整理了 Seedance 视频生成里的运镜分类、镜头节奏和提示词复用方法。",
                 study_text,
             )
-            self.assertIn("OHHF", reports.project_suggestion.read_text(encoding="utf-8"))
+            suggestion_text = reports.project_suggestion.read_text(encoding="utf-8")
+            self.assertIn("OHHF", suggestion_text)
+            self.assertIn("短视频收件箱", suggestion_text)
+            self.assertIn("## 可复用资产", suggestion_text)
+            self.assertIn("增强人物皮肤真实感", suggestion_text)
 
 
 if __name__ == "__main__":
