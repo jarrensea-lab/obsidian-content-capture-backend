@@ -223,6 +223,7 @@ def process_inbox_once(
                             source_text=str(record.get("text", "")),
                         )
                         result["raw_note"] = str(reports.raw_note)
+                        result["knowledge_note"] = str(reports.knowledge_note)
                         result["study_report"] = str(reports.study_report)
                         result["project_suggestion"] = str(reports.project_suggestion)
 

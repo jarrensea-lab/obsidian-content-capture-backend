@@ -64,8 +64,17 @@ class VideoReportTest(unittest.TestCase):
             )
 
             self.assertTrue(reports.raw_note.exists())
+            self.assertTrue(reports.knowledge_note.exists())
             self.assertTrue(reports.study_report.exists())
             self.assertTrue(reports.project_suggestion.exists())
+            self.assertIn(
+                "02-知识笔记/短视频爬取",
+                reports.knowledge_note.as_posix(),
+            )
+            knowledge_text = reports.knowledge_note.read_text(encoding="utf-8")
+            self.assertIn("## 完整转写 / 配文", knowledge_text)
+            self.assertIn("## 帧 OCR 文本", knowledge_text)
+            self.assertIn("motion strength 0.6", knowledge_text)
             study_text = reports.study_report.read_text(encoding="utf-8")
             self.assertIn("Seedance", study_text)
             self.assertIn("## 完整转写 / 配文", study_text)
