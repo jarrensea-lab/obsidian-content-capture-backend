@@ -67,11 +67,14 @@ def run_once(args: argparse.Namespace) -> int:
         limit=args.limit,
     )
     print(
-        "scanned={scanned} created={created} skipped={skipped} failed={failed} inbox={inbox} processed={processed}".format(
+        "scanned={scanned} created={created} skipped={skipped} failed={failed} "
+        "reply_sent={reply_sent} reply_failed={reply_failed} inbox={inbox} processed={processed}".format(
             scanned=summary.scanned_records,
             created=summary.created_results,
             skipped=summary.skipped_results,
             failed=summary.failed_results,
+            reply_sent=summary.reply_sent,
+            reply_failed=summary.reply_failed,
             inbox=inbox_path,
             processed=processed_path,
         )

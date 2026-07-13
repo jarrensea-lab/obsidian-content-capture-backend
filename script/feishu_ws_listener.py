@@ -29,6 +29,7 @@ class ListenerQueueResult:
     inbox_path: Path | None
     record: dict[str, Any] | None
     reply_error: str | None = None
+    reply_sent: bool = False
 
 
 def _sdk_event_to_payload(data: Any) -> dict[str, Any]:
@@ -75,6 +76,7 @@ def queue_message_event(
         inbox_path=inbox_path,
         record=record,
         reply_error=reply_error,
+        reply_sent=reply_error is None,
     )
 
 
@@ -88,7 +90,7 @@ def _env_required(name: str) -> str:
 def _log_queue_result(result: ListenerQueueResult) -> None:
     if result.queued:
         links = ", ".join(result.record.get("links", [])) if result.record else ""
-        reply = f" reply_error={result.reply_error}" if result.reply_error else ""
+        reply = f" reply_error={result.reply_error}" if result.reply_error else " reply=sent"
         print(f"queued={result.queued} links={links}{reply}", flush=True)
     else:
         print("queued=0 message=no-douyin-link", flush=True)

@@ -162,6 +162,8 @@ class FeishuInboxTest(unittest.TestCase):
             )
 
             self.assertEqual(result.queued, 1)
+            self.assertTrue(result.reply_sent)
+            self.assertIsNone(result.reply_error)
             self.assertEqual(len(replies), 1)
             self.assertEqual(replies[0][0], "om_ws_reply")
             self.assertIn("已接收", replies[0][1])
@@ -207,6 +209,8 @@ class FeishuInboxTest(unittest.TestCase):
             )
 
             self.assertEqual(summary.created_results, 1)
+            self.assertEqual(summary.reply_sent, 1)
+            self.assertEqual(summary.reply_failed, 0)
             self.assertEqual(len(replies), 1)
             self.assertEqual(replies[0][0], "om_done")
             self.assertIn("已处理完毕", replies[0][1])

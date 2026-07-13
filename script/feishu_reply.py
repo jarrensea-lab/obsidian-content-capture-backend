@@ -12,6 +12,7 @@ import requests
 ReplySender = Callable[[str, str], None]
 
 _TOKEN_CACHE: dict[str, Any] = {"token": "", "expires_at": 0.0}
+DEFAULT_FEISHU_APP_ID = "cli_aaab1c2d2c785bfc"
 
 
 class FeishuReplyError(RuntimeError):
@@ -19,6 +20,8 @@ class FeishuReplyError(RuntimeError):
 
 
 def _env(name: str) -> str:
+    if name == "FEISHU_APP_ID":
+        return os.environ.get(name, DEFAULT_FEISHU_APP_ID).strip()
     return os.environ.get(name, "").strip()
 
 

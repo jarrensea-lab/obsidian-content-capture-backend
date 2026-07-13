@@ -24,6 +24,8 @@ class InboxProcessSummary:
     skipped_results: int = 0
     created_results: int = 0
     failed_results: int = 0
+    reply_sent: int = 0
+    reply_failed: int = 0
 
 
 def default_inbox_dir() -> Path:
@@ -174,6 +176,8 @@ def process_inbox_once(
     skipped = 0
     created = 0
     failed = 0
+    reply_sent = 0
+    reply_failed = 0
 
     for record in read_jsonl(source_path):
         if record.get("status") != "queued":
@@ -181,7 +185,7 @@ def process_inbox_once(
         scanned += 1
         for link in record.get("links") or []:
             if limit is not None and created >= limit:
-                return InboxProcessSummary(scanned, skipped, created, failed)
+                return InboxProcessSummary(scanned, skipped, created, failed, reply_sent, reply_failed)
 
             source_id = _record_identity(record)
             key = _result_key(record, link)
@@ -261,10 +265,13 @@ def process_inbox_once(
             )
             if reply_error:
                 result["reply_error"] = reply_error
+                reply_failed += 1
+            else:
+                reply_sent += 1
 
             append_jsonl(result_path, result)
             completed.add(key)
             completed.add(f"link::{link}")
             created += 1
 
-    return InboxProcessSummary(scanned, skipped, created, failed)
+    return InboxProcessSummary(scanned, skipped, created, failed, reply_sent, reply_failed)
