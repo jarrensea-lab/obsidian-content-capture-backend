@@ -12,6 +12,40 @@ from script.frame_ocr import read_frame_ocr_text
 
 DEFAULT_SIKU_ROOT = Path("/Users/zhuchenyuan/AI/projects/司库")
 
+COMMON_TEXT_CORRECTIONS = {
+    "简弱AI为加强人物制杆": "增强 AI 人物质感",
+    "简弱 AI 为加强人物制杆": "增强 AI 人物质感",
+    "简弱AI为加强人物质感": "增强 AI 人物质感",
+    "简弱 AI 为加强人物质感": "增强 AI 人物质感",
+    "移出初骗的视频人数": "移除图片的饰品元素",
+    "移出图片的视频人数": "移除图片的饰品元素",
+    "移出初骗的饰品元素": "移除图片的饰品元素",
+    "特显销项": "特写肖像",
+    "電影风格貨像": "电影风格肖像",
+    "电影风格貨像": "电影风格肖像",
+    "電影风格肖像": "电影风格肖像",
+    "貨像": "肖像",
+    "比列不变护图": "比例不变扩图",
+    "比例不变扩词": "比例不变扩图",
+    "比列": "比例",
+    "护图": "扩图",
+    "扩词": "扩图",
+    "老照顺": "老照片",
+    "平分系统": "评分系统",
+    "三地角色试图": "3D角色视图",
+    "三地角色視图": "3D角色视图",
+    "三地": "3D",
+    "彻图": "视图",
+    "制杆": "质感",
+    "初骗": "图片",
+    "视频人数": "饰品元素",
+    "豆绘Al": "豆绘AI",
+    "A饅": "AI帮",
+    " Al ": " AI ",
+    "Al为": "AI为",
+    "Al人物": "AI人物",
+}
+
 
 @dataclass(frozen=True)
 class SikuReportPaths:
@@ -48,6 +82,15 @@ def _safe_filename(value: str, *, fallback: str) -> str:
     text = re.sub(r"[\\/:*?\"<>|#\[\]\n\r\t]+", "-", value).strip(" .-")
     text = re.sub(r"\s+", "", text)
     return (text or fallback)[:48]
+
+
+def _clean_recognized_text(text: str) -> str:
+    cleaned = text
+    for source, target in COMMON_TEXT_CORRECTIONS.items():
+        cleaned = cleaned.replace(source, target)
+    cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 def _frontmatter(**items: str) -> str:
@@ -195,7 +238,12 @@ def generate_siku_reports(
     meta = _read_json(out_dir / "meta.json")
     transcript = _read_transcript(out_dir)
     frame_ocr_text = read_frame_ocr_text(out_dir)
-    analysis_text = "\n".join(part for part in [transcript, frame_ocr_text, source_text] if part)
+    clean_transcript = _clean_recognized_text(transcript)
+    clean_frame_ocr_text = _clean_recognized_text(frame_ocr_text)
+    clean_source_text = _clean_recognized_text(source_text)
+    analysis_text = "\n".join(
+        part for part in [clean_transcript, clean_frame_ocr_text, clean_source_text] if part
+    )
     created_at = now or datetime.now().astimezone()
     date = created_at.strftime("%Y-%m-%d")
     aweme_id = str(meta.get("aweme_id") or meta.get("video_id") or out_dir.name)
@@ -239,10 +287,19 @@ def generate_siku_reports(
 ## 帧证据
 {frame_evidence}
 
-## 帧 OCR 文本
+## 初步校对内容
+说明：本节对 ASR / OCR 常见错词做了机器校对，仍需结合下方原始证据复核关键提示词、参数和界面文字。
+
+### 帧 OCR 校对文本
+{clean_frame_ocr_text or "暂未识别到帧中文字。"}
+
+### 转写 / 配文校对文本
+{_full_content_block(clean_transcript)}
+
+## 原始帧 OCR 文本
 {frame_ocr_text or "暂未识别到帧中文字。"}
 
-## 完整转写 / 配文
+## 完整转写 / 配文（原始）
 {_full_content_block(transcript)}
 """
 
@@ -261,20 +318,20 @@ def generate_siku_reports(
 ## 帧证据
 {frame_evidence}
 
-## 帧 OCR 文本
-{frame_ocr_text or "暂未识别到帧中文字。"}
+## 帧 OCR 校对文本
+{clean_frame_ocr_text or "暂未识别到帧中文字。"}
 
 ## 需要二次验证
 - 原视频中的示例是否完整覆盖关键条件。
 - 方法是否依赖特定模型、平台版本或作者经验。
 - 是否能通过本地项目样例复现。
-- 转写无法表达的软件界面、参数面板、提示词原文，需要结合帧证据或视觉模型复核。
+- 本报告已做机器校对；提示词、参数、软件界面文字仍需结合原始帧证据或视觉模型复核。
 
 ## 关联项目
 {_bullet_list(projects)}
 
 ## 完整转写 / 配文
-{_full_content_block(transcript)}
+{_full_content_block(clean_transcript)}
 """
 
     suggestion_content = f"""{_frontmatter(**{**common_fm, "type": "project-suggestion-card"})}
